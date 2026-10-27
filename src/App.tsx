@@ -382,27 +382,37 @@ const recommendedProducts = [...products]
   </span>
 }
       >
-        <div className="weather-body">
-  <div className={`weather-animation ${showWeatherAnimation ? 'show' : ''}`}>
-    {weather.toLowerCase().includes('rain') ? (
-      <div className="rain-animation" key={weatherAnimationKey}>
-        🌧️
-        <span>Rainy weather</span>
-      </div>
-    ) : weather.toLowerCase().includes('cloud') ||
-      weather.toLowerCase().includes('fog') ? (
-      <div className="cloud-animation" key={weatherAnimationKey}>
-        ☁️
-        <span>Cloudy weather</span>
-      </div>
-    ) : (
-      <div className="sun-animation" key={weatherAnimationKey}>
-        ☀️
-        <span>Sunny weather</span>
-      </div>
-    )}
-  </div>
-
+  ```tsx
+<div className={`weather-animation ${showWeatherAnimation ? 'show' : ''}`}>
+  {weather.toLowerCase().includes('storm') ? (
+    <div className="storm-animation" key={weatherAnimationKey}>
+      ⛈️
+      <span>Stormy weather</span>
+    </div>
+  ) : weather.toLowerCase().includes('rain') ? (
+    <div className="rain-animation" key={weatherAnimationKey}>
+      🌧️
+      <span>Rainy weather</span>
+    </div>
+  ) : weather.toLowerCase().includes('partly') ? (
+    <div className="partly-cloudy-animation" key={weatherAnimationKey}>
+      🌤️
+      <span>Partly cloudy weather</span>
+    </div>
+  ) : weather.toLowerCase().includes('cloud') ||
+    weather.toLowerCase().includes('fog') ? (
+    <div className="cloud-animation" key={weatherAnimationKey}>
+      ☁️
+      <span>Cloudy weather</span>
+    </div>
+  ) : (
+    <div className="sun-animation" key={weatherAnimationKey}>
+      ☀️
+      <span>Sunny weather</span>
+    </div>
+  )}
+</div>
+```
   <div className="weather-now">
     <div className="weather-symbol">
       <Icon
@@ -1774,7 +1784,11 @@ const recommendedProducts = [...products]
     )
   }
 return (
-  <div className="app-shell">
+  <div className={`app-shell ${
+  weatherLoading || weatherError
+    ? ''
+    : `weather-${weather.toLowerCase().replace(/\s+/g, '-')}`
+}`}>
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark"><Icon name="cup" size={20}/></div><div><strong>SOLSTICE</strong><span>COFFEE</span></div></div>
       <p className="brand-note">Every season,<br/>your perfect brew.</p>
