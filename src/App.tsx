@@ -372,7 +372,15 @@ const recommendedProducts = [...products]
       <Panel
         title="Weather & drink pairing"
         icon="cloud"
-        action={<span className="data-chip">MANUAL ENTRY</span>}
+        action={
+  <span className="data-chip">
+    {weatherLoading
+      ? 'LOADING WEATHER...'
+      : weatherError
+        ? 'WEATHER UNAVAILABLE'
+        : 'LIVE WEATHER'}
+  </span>
+}
       >
         <div className="weather-body">
   <div className={`weather-animation ${showWeatherAnimation ? 'show' : ''}`}>
@@ -452,7 +460,7 @@ const recommendedProducts = [...products]
           </h2>
 
           <p>
-            A café favorite selected to match the manually entered weather.
+            A café favorite selected to match the current local weather.
           </p>
 
           <div className="drink-meta">
