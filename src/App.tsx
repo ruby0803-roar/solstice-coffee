@@ -382,7 +382,7 @@ const recommendedProducts = [...products]
   </span>
 }
       >
-  ```tsx
+tsx
 <div className="weather-body">
   <div className={`weather-animation ${showWeatherAnimation ? 'show' : ''}`}>
     {weather.toLowerCase().includes('storm') ? (
