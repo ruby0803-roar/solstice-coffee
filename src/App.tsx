@@ -1826,7 +1826,7 @@ return (
     </aside>
      <main>
       <div className="topbar">
-        <div className="search" style={{ position: 'relative', zIndex: 1001 }}>
+     <div className="search" style={{ position: 'relative', zIndex: 1001 }}>
   <Icon name="search" size={17} />
 
   <input
@@ -1876,10 +1876,10 @@ return (
     style={{
   position: 'absolute',
   top: 'calc(100% + 8px)',
-  left: 'auto',
+  left: 0,
   right: 0,
-  width: '320px',
-  maxWidth: 'min(320px, 90vw)',
+  width: '100%',
+  boxSizing: 'border-box',
   maxHeight: '320px',
   overflowY: 'auto',
   background: '#F7F1E8',
