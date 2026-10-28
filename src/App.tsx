@@ -1873,22 +1873,23 @@ return (
 
   {search.trim() && (
     <div
-      style={{
-        position: 'absolute',
-        top: 'calc(100% + 8px)',
-        left: 0,
-        right: 0,
-        minWidth: '280px',
-        maxHeight: '320px',
-        overflowY: 'auto',
-        background: '#F7F1E8',
-        border: '1px solid #D8C3A5',
-        borderRadius: '12px',
-        boxShadow: '0 8px 24px rgba(59, 41, 37, 0.15)',
-        zIndex: 1000,
-        padding: '8px',
-        color: '#3B2925'
-      }}
+    style={{
+  position: 'absolute',
+  top: 'calc(100% + 8px)',
+  left: 'auto',
+  right: 0,
+  width: '320px',
+  maxWidth: 'min(320px, 90vw)',
+  maxHeight: '320px',
+  overflowY: 'auto',
+  background: '#F7F1E8',
+  border: '1px solid #D8C3A5',
+  borderRadius: '12px',
+  boxShadow: '0 8px 24px rgba(59, 41, 37, 0.15)',
+  zIndex: 1000,
+  padding: '8px',
+  color: '#3B2925'
+}}
     >
       <div
         style={{
