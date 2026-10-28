@@ -1826,7 +1826,7 @@ return (
     </aside>
      <main>
       <div className="topbar">
-        <div className="search" style={{ position: 'relative' }}>
+        <div className="search" style={{ position: 'relative', zIndex: 1001 }}>
   <Icon name="search" size={17} />
 
   <input
