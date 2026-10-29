@@ -1212,7 +1212,64 @@ const recommendedProducts = [...products]
     form.reset()
     act('Employee added successfully.')
   }
+  const saveEditedStaff = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
 
+    if (!editingStaffUsername) return
+
+    const form = e.currentTarget
+    const data = new FormData(form)
+
+    const name = String(data.get('editName') || '').trim()
+    const username = String(data.get('editUsername') || '').trim().toLowerCase()
+    const role = String(data.get('editRole') || 'Cashier') as UserRole
+    const startTime = String(data.get('editStartTime') || '09:00')
+    const endTime = String(data.get('editEndTime') || '17:00')
+    const active = data.get('editActive') === 'on'
+
+    if (!name || !username) {
+      act('Enter an employee name and username.')
+      return
+    }
+
+    if (
+      staff.some(
+        person =>
+          person.username === username &&
+          person.username !== editingStaffUsername
+      )
+    ) {
+      act('That username already exists. Please use a unique username.')
+      return
+    }
+
+    const formatTime = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number)
+      const suffix = hours >= 12 ? 'PM' : 'AM'
+      const displayHour = hours % 12 || 12
+      return `${displayHour}:${String(minutes).padStart(2, '0')} ${suffix}`
+    }
+
+    setStaff(old =>
+      old.map(person =>
+        person.username === editingStaffUsername
+          ? {
+              ...person,
+              username,
+              name,
+              role,
+              startTime,
+              endTime,
+              active,
+              schedule: `${formatTime(startTime)} – ${formatTime(endTime)}`,
+            }
+          : person
+      )
+    )
+
+    setEditingStaffUsername(null)
+    act('Employee details updated successfully.')
+  }
   const updateStaff = (
     username: string,
     field: 'name' | 'role' | 'startTime' | 'endTime' | 'active',
@@ -1319,7 +1376,104 @@ const recommendedProducts = [...products]
           </button>
         </form>
       </Panel>
+{editingStaffUsername && staff.find(person => person.username === editingStaffUsername) && (
+  <Panel title="Edit employee" icon="orders">
+    {(() => {
+      const person = staff.find(p => p.username === editingStaffUsername)!
+      return (
+        <form
+          key={person.username}
+          onSubmit={saveEditedStaff}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+            gap: 12,
+            padding: 18,
+            alignItems: 'end',
+          }}
+        >
+          <label>
+            Employee name
+            <input
+              name="editName"
+              defaultValue={person.name}
+              style={inputStyle}
+              required
+            />
+          </label>
 
+          <label>
+            Username
+            <input
+              name="editUsername"
+              defaultValue={person.username}
+              style={inputStyle}
+              required
+            />
+          </label>
+
+          <label>
+            Role
+            <select
+              name="editRole"
+              defaultValue={person.role}
+              style={inputStyle}
+            >
+              <option value="Cashier">Cashier</option>
+              <option value="Manager">Manager</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </label>
+
+          <label>
+            Start time
+            <input
+              type="time"
+              name="editStartTime"
+              defaultValue={person.startTime || '09:00'}
+              style={inputStyle}
+              required
+            />
+          </label>
+
+          <label>
+            End time
+            <input
+              type="time"
+              name="editEndTime"
+              defaultValue={person.endTime || '17:00'}
+              style={inputStyle}
+              required
+            />
+          </label>
+
+          <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              name="editActive"
+              defaultChecked={person.active !== false}
+            />
+            Active
+          </label>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="submit" style={actionStyle}>
+              Save Changes
+            </button>
+
+            <button
+              type="button"
+              style={actionStyle}
+              onClick={() => setEditingStaffUsername(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )
+    })()}
+  </Panel>
+)}
       <Panel title={`Employee records (${staff.length})`} icon="history">
         <div style={{ overflowX: 'auto' }}>
           <table style={tableStyle}>
@@ -1416,6 +1570,31 @@ const recommendedProducts = [...products]
                   </td>
                   <td style={cellStyle}>
   <button
+    type="button"
+    style={actionStyle}
+    onClick={() => setEditingStaffUsername(person.username)}
+  >
+    Edit
+  </button>
+
+  <button
+    style={actionStyle}
+    onClick={() => {
+      const confirmed = window.confirm(
+        `Delete ${person.name}? This will also remove their attendance from this staff list.`
+      )
+
+      if (confirmed) {
+        setStaff(old =>
+          old.filter(employee => employee.username !== person.username)
+        )
+        act('Employee deleted.')
+      }
+    }}
+  >
+    Delete
+  </button>
+</td>
     style={actionStyle}
     onClick={() => {
       const confirmed = window.confirm(
