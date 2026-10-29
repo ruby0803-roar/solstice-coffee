@@ -403,3 +403,14 @@ main > * {
   from { filter: brightness(0.95); }
   to { filter: brightness(1.15); }
 }
+
+/* Super Admin dashboard summary cards */
+.dashboard-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1280px) {
+  .dashboard-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
