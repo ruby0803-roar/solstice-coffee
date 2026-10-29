@@ -1569,13 +1569,13 @@ const recommendedProducts = [...products]
                       </button>}
                   </td>
                   <td style={cellStyle}>
-  <button
-    type="button"
-    style={actionStyle}
-    onClick={() => setEditingStaffUsername(person.username)}
-  >
-    Edit
-  </button>
+<button
+  type="button"
+  style={{ ...actionStyle, marginRight: 12 }}
+  onClick={() => setEditingStaffUsername(person.username)}
+>
+  Edit
+</button>
 
   <button
     style={{ ...actionStyle, marginRight: 8 }}
