@@ -330,7 +330,7 @@ const recommendedProducts = [...products]
       </div>
     </div>
 
-    <div className="metrics">
+    <div className="metrics dashboard-metrics">
       <article className="metric">
         <div className="metric-top">
           <span>Recorded sales</span>
@@ -338,7 +338,7 @@ const recommendedProducts = [...products]
         </div>
         <strong>{money(totalSales)}</strong>
         <div className="metric-foot">
-          <span>{totalOrders} completed orders</span>
+          <span>All completed orders</span>
         </div>
       </article>
 
@@ -360,10 +360,20 @@ const recommendedProducts = [...products]
         </div>
         <strong>{lowStock} items</strong>
         <div className="metric-foot">
-          <span>{soonExpiry.length} expiring soon</span>
-          <button onClick={() => setActive('Smart Inventory')}>
-            Review now
-          </button>
+          <span>At or below minimum stock</span>
+          <button onClick={() => setActive('Smart Inventory')}>Review now</button>
+        </div>
+      </article>
+
+      <article className={`metric ${soonExpiry.length ? 'alert-card' : ''}`}>
+        <div className="metric-top">
+          <span>Ingredients expiring soon</span>
+          <i><Icon name="calendar" size={19} /></i>
+        </div>
+        <strong>{soonExpiry.length} items</strong>
+        <div className="metric-foot">
+          <span>Within the next 3 days</span>
+          <button onClick={() => setActive('Expiration Alerts')}>Review now</button>
         </div>
       </article>
     </div>
