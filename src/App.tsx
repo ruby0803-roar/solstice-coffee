@@ -31,10 +31,16 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
 }
 
 const nav: [string, IconName][] = [
-  ['Dashboard', 'grid'], ['Point of Sale', 'cart'], ['Products & Menu', 'cup'],
-  ['Sales History', 'history'], ['Smart Inventory', 'box'], ['Expiration Alerts', 'calendar'],
-  ['Waste Monitoring', 'trash'], ['Weather Insights', 'cloud'], ['Reports', 'chart'],
-  ['Employee Management', 'orders'], ['My Schedule', 'calendar'], ['Attendance', 'history'],
+  ['Dashboard', 'grid'],
+  ['Point of Sale', 'cart'],
+  ['Products & Menu', 'cup'],
+  ['Sales History', 'history'],
+  ['Smart Inventory', 'box'],
+  ['Expiration Alerts', 'calendar'],
+  ['Waste Monitoring', 'trash'],
+  ['Weather Insights', 'cloud'],
+  ['Reports', 'chart'],
+  ['Employees Management', 'settings'],
 ]
 
 type Product = { id: number; name: string; price: number; category: string; unitCost?: number }
@@ -43,6 +49,14 @@ type Sale = { id: number; date: string; items: string; total: number; cost?: num
 type UserRole = 'Admin' | 'Manager' | 'Cashier'
 type StaffRecord = { username: string; name: string; role: UserRole; schedule: string; attendance: { date: string; status: string; timeIn?: string; timeOut?: string }[] }
 type Waste = { id: number; item: string; quantity: number; reason: string; cost: number; date: string }
+type Employee = {
+  id: number
+  name: string
+  role: 'Manager' | 'Admin'
+  startTime: string
+  endTime: string
+  active: boolean
+}
 
 const initialProducts: Product[] = [
   { id: 1, name: 'Hot Caramel Latte', price: 215, category: 'Hot Coffee' },
