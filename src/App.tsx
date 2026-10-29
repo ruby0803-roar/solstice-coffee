@@ -1334,6 +1334,7 @@ const recommendedProducts = [...products]
                   'Status',
                   'Attendance',
                   "Today's status",
+                  'Actions',
                 ].map(header => (
                   <th key={header} style={cellStyle}>{header}</th>
                 ))}
@@ -1413,7 +1414,27 @@ const recommendedProducts = [...products]
                         Mark absent
                       </button>}
                   </td>
+                  <td style={cellStyle}>
+  <button
+    style={actionStyle}
+    onClick={() => {
+      const confirmed = window.confirm(
+        `Delete ${person.name}? This will also remove their attendance from this staff list.`
+      )
+
+      if (confirmed) {
+        setStaff(old =>
+          old.filter(employee => employee.username !== person.username)
+        )
+        act('Employee deleted.')
+      }
+    }}
+  >
+    Delete
+  </button>
+</td>
                 </tr>
+      
               ))}
             </tbody>
           </table>
