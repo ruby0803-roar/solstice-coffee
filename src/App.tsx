@@ -149,6 +149,19 @@ export default function App() {
   const [staffUsername, setStaffUsername] = useState('')
   const [staffRole, setStaffRole] = useState<UserRole>('Cashier')
   const [staffSchedule, setStaffSchedule] = useState('Mon–Fri · 10:00 AM–6:00 PM')
+  
+  const [employees, setEmployees] = useState<Employee[]>(() => readSaved('solsticeEmployees', []))
+  
+  const [employeeForm, setEmployeeForm] = useState<Employee>({
+    id: 0,
+    name: '',
+    role: 'Admin',
+    startTime: '07:00',
+    endTime: '11:00',
+    active: true,
+  })
+
+  const [editingEmployeeId, setEditingEmployeeId] = useState<number | null>(null)
 
   useEffect(() => {
   localStorage.setItem('solstice_products', JSON.stringify(products))
@@ -1139,7 +1152,175 @@ const recommendedProducts = [...products]
       <Panel title="Attendance overview" icon="calendar"><div style={{overflowX:'auto'}}><table style={tableStyle}><thead><tr>{['Employee','Date','Status','Time in','Time out'].map(h=><th key={h} style={cellStyle}>{h}</th>)}</tr></thead><tbody>{staff.flatMap(person=>person.attendance.map((a,i)=><tr key={`${person.username}-${i}`}><td style={cellStyle}>{person.name}</td><td style={cellStyle}>{a.date}</td><td style={cellStyle}>{a.status}</td><td style={cellStyle}>{a.timeIn || '—'}</td><td style={cellStyle}>{a.timeOut || '—'}</td></tr>))}</tbody></table></div></Panel>
     </div>
   }
+if (active === 'Employees Management') {
+  const saveEmployee = () => {
+    if (!employeeForm.name.trim()) {
+      alert('Please enter the employee name.')
+      return
+    }
 
+    const updatedEmployees = editingEmployeeId === null
+      ? [...employees, { ...employeeForm, id: Date.now() }]
+      : employees.map(employee =>
+          employee.id === editingEmployeeId
+            ? { ...employeeForm, id: editingEmployeeId }
+            : employee
+        )
+
+    setEmployees(updatedEmployees)
+    localStorage.setItem('solsticeEmployees', JSON.stringify(updatedEmployees))
+
+    setEmployeeForm({
+      id: 0,
+      name: '',
+      role: 'Admin',
+      startTime: '07:00',
+      endTime: '11:00',
+      active: true,
+    })
+    setEditingEmployeeId(null)
+  }
+
+  return (
+    <div className="content">
+      <PageTitle
+        eyebrow="TEAM MANAGEMENT"
+        title="Employees Management"
+        subtitle="Manage employee names, roles, schedules, and status."
+      />
+
+      <Panel title={editingEmployeeId === null ? 'Add Employee' : 'Edit Employee'} icon="settings">
+        <div style={{ padding: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+          <label>
+            Employee Name
+            <input
+              value={employeeForm.name}
+              onChange={e => setEmployeeForm({ ...employeeForm, name: e.target.value })}
+              placeholder="Enter employee name"
+              style={{ display: 'block', width: '100%', marginTop: 6, padding: 10 }}
+            />
+          </label>
+
+          <label>
+            Role
+            <select
+              value={employeeForm.role}
+              onChange={e => setEmployeeForm({ ...employeeForm, role: e.target.value as 'Manager' | 'Admin' })}
+              style={{ display: 'block', width: '100%', marginTop: 6, padding: 10 }}
+            >
+              <option value="Manager">Manager</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </label>
+
+          <label>
+            Start Time
+            <input
+              type="time"
+              value={employeeForm.startTime}
+              onChange={e => setEmployeeForm({ ...employeeForm, startTime: e.target.value })}
+              style={{ display: 'block', width: '100%', marginTop: 6, padding: 10 }}
+            />
+          </label>
+
+          <label>
+            End Time
+            <input
+              type="time"
+              value={employeeForm.endTime}
+              onChange={e => setEmployeeForm({ ...employeeForm, endTime: e.target.value })}
+              style={{ display: 'block', width: '100%', marginTop: 6, padding: 10 }}
+            />
+          </label>
+
+          <label>
+            Status
+            <select
+              value={employeeForm.active ? 'Active' : 'Inactive'}
+              onChange={e => setEmployeeForm({ ...employeeForm, active: e.target.value === 'Active' })}
+              style={{ display: 'block', width: '100%', marginTop: 6, padding: 10 }}
+            >
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </label>
+
+          <div style={{ display: 'flex', alignItems: 'end', gap: 8 }}>
+            <button style={actionStyle} onClick={saveEmployee}>
+              {editingEmployeeId === null ? '+ Add Employee' : 'Save Changes'}
+            </button>
+
+            {editingEmployeeId !== null && (
+              <button
+                style={actionStyle}
+                onClick={() => {
+                  setEditingEmployeeId(null)
+                  setEmployeeForm({
+                    id: 0,
+                    name: '',
+                    role: 'Admin',
+                    startTime: '07:00',
+                    endTime: '11:00',
+                    active: true,
+                  })
+                }}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </div>
+      </Panel>
+
+      <Panel title={`Employee List (${employees.length})`} icon="history">
+        <div style={{ overflowX: 'auto' }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                {['Name', 'Role', 'Schedule', 'Status', 'Action'].map(header => (
+                  <th key={header} style={cellStyle}>{header}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {employees.map(employee => (
+                <tr key={employee.id}>
+                  <td style={cellStyle}>{employee.name}</td>
+                  <td style={cellStyle}>{employee.role}</td>
+                  <td style={cellStyle}>
+                    {new Date(`2000-01-01T${employee.startTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    {' – '}
+                    {new Date(`2000-01-01T${employee.endTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                  </td>
+                  <td style={cellStyle}>{employee.active ? 'Active' : 'Inactive'}</td>
+                  <td style={cellStyle}>
+                    <button
+                      style={actionStyle}
+                      onClick={() => {
+                        setEmployeeForm({ ...employee })
+                        setEditingEmployeeId(employee.id)
+                      }}
+                    >
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
+              {employees.length === 0 && (
+                <tr>
+                  <td style={cellStyle} colSpan={5}>
+                    No employees added yet. Add your first employee using the form above.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+    </div>
+  )
+}
   if (active === 'Reports') {
     const now = new Date()
     const getDate = (value: string) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? null : d }
