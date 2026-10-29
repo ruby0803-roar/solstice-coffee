@@ -122,6 +122,7 @@ export default function App() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
+  const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false)
   const [role, setRole] = useState<UserRole>('Admin')
   const [staff, setStaff] = useState<StaffRecord[]>(() => readSaved('solstice_staff', [
     { username: 'admin', name: 'Administrator', role: 'Admin', schedule: 'Mon–Fri · 9:00 AM–5:00 PM', attendance: [] },
