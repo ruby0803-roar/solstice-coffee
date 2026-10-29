@@ -47,7 +47,21 @@ type Product = { id: number; name: string; price: number; category: string; unit
 type Ingredient = { id: number; name: string; quantity: number; unit: string; min: number; expiry: string }
 type Sale = { id: number; date: string; items: string; total: number; cost?: number; profit?: number; paymentMethod?: string; cashier?: string }
 type UserRole = 'Admin' | 'Manager' | 'Cashier'
-type StaffRecord = { username: string; name: string; role: UserRole; schedule: string; attendance: { date: string; status: string; timeIn?: string; timeOut?: string }[] }
+type StaffRecord = {
+  username: string
+  name: string
+  role: UserRole
+  schedule: string
+  startTime?: string
+  endTime?: string
+  active?: boolean
+  attendance: {
+    date: string
+    status: string
+    timeIn?: string
+    timeOut?: string
+  }[]
+}
 type Waste = { id: number; item: string; quantity: number; reason: string; cost: number; date: string }
 type Employee = {
   id: number
@@ -1125,194 +1139,309 @@ const recommendedProducts = [...products]
     </div>
   }
 
-  if (active === 'Employee Management' && role !== 'Cashier') {
-    const todayAttendanceDate = new Date().toLocaleDateString()
-    const markAbsent = (targetUsername: string) => {
-      setStaff(old => old.map(person => {
-        if (person.username !== targetUsername || person.attendance.some(a => a.date === todayAttendanceDate)) return person
-        return { ...person, attendance: [...person.attendance, { date: todayAttendanceDate, status: 'Absent' }] }
-      }))
-      act('Absent recorded if the employee has no attendance record today.')
-    }
-    const addStaff = (e: React.FormEvent) => {
-      e.preventDefault()
-      if (!staffName.trim() || !staffUsername.trim() || staff.some(x => x.username === staffUsername.trim().toLowerCase())) { act('Enter a name and unique username.'); return }
-      setStaff(old => [...old, {name:staffName.trim(), username:staffUsername.trim().toLowerCase(), role:staffRole, schedule:staffSchedule, attendance:[]}])
-      setStaffName(''); setStaffUsername(''); act('Employee added. Demo login passwords are documented on the login screen only for the seeded accounts; connect a backend for real employee authentication.')
-    }
-    return <div className="content"><PageTitle eyebrow="PEOPLE & OPERATIONS" title="Employee Management" subtitle="Manage staff schedules and review attendance records." />
-      <Panel title="Add employee / assign schedule" icon="orders"><form onSubmit={addStaff} style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,padding:18,alignItems:'end'}}>
-        <Field label="Employee name"><input style={inputStyle} value={staffName} onChange={e=>setStaffName(e.target.value)} required /></Field>
-        <Field label="Username"><input style={inputStyle} value={staffUsername} onChange={e=>setStaffUsername(e.target.value)} required /></Field>
-        <Field label="Role"><select style={inputStyle} value={staffRole} onChange={e=>setStaffRole(e.target.value as UserRole)}><option>Cashier</option><option>Manager</option><option>Admin</option></select></Field>
-        <Field label="Work schedule"><input style={inputStyle} value={staffSchedule} onChange={e=>setStaffSchedule(e.target.value)} required /></Field>
-        <button style={actionStyle} type="submit">Add employee</button>
-      </form></Panel>
-      <Panel title={`Staff records (${staff.length})`} icon="history"><div style={{overflowX:'auto'}}><table style={tableStyle}><thead><tr>{['Employee','Username','Role','Schedule','Attendance records',"Today's status"].map(h=><th key={h} style={cellStyle}>{h}</th>)}</tr></thead><tbody>{staff.map(person=><tr key={person.username}><td style={cellStyle}>{person.name}</td><td style={cellStyle}>{person.username}</td><td style={cellStyle}>{person.role}</td><td style={cellStyle}>{person.schedule}</td><td style={cellStyle}>{person.attendance.length}</td><td style={cellStyle}>{person.attendance.find(a=>a.date===todayAttendanceDate)?.status || <button style={actionStyle} onClick={()=>markAbsent(person.username)}>Mark absent</button>}</td></tr>)}</tbody></table></div></Panel>
-      <Panel title="Attendance overview" icon="calendar"><div style={{overflowX:'auto'}}><table style={tableStyle}><thead><tr>{['Employee','Date','Status','Time in','Time out'].map(h=><th key={h} style={cellStyle}>{h}</th>)}</tr></thead><tbody>{staff.flatMap(person=>person.attendance.map((a,i)=><tr key={`${person.username}-${i}`}><td style={cellStyle}>{person.name}</td><td style={cellStyle}>{a.date}</td><td style={cellStyle}>{a.status}</td><td style={cellStyle}>{a.timeIn || '—'}</td><td style={cellStyle}>{a.timeOut || '—'}</td></tr>))}</tbody></table></div></Panel>
-    </div>
+ if (active === 'Employees Management' && role !== 'Cashier') {
+  const todayAttendanceDate = new Date().toLocaleDateString()
+
+  const markAbsent = (targetUsername: string) => {
+    setStaff(old =>
+      old.map(person => {
+        if (
+          person.username !== targetUsername ||
+          person.attendance.some(a => a.date === todayAttendanceDate)
+        ) {
+          return person
+        }
+
+        return {
+          ...person,
+          attendance: [
+            ...person.attendance,
+            { date: todayAttendanceDate, status: 'Absent' },
+          ],
+        }
+      })
+    )
+
+    act('Absent recorded if the employee has no attendance record today.')
   }
-if (active === 'Employees Management') {
-  const saveEmployee = () => {
-    if (!employeeForm.name.trim()) {
-      alert('Please enter the employee name.')
+
+  const saveStaff = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+
+    const form = e.currentTarget
+    const data = new FormData(form)
+
+    const name = String(data.get('employeeName') || '').trim()
+    const username = String(data.get('username') || '').trim().toLowerCase()
+    const employeeRole = String(data.get('employeeRole') || 'Cashier') as UserRole
+    const startTime = String(data.get('startTime') || '09:00')
+    const endTime = String(data.get('endTime') || '17:00')
+    const active = data.get('active') === 'on'
+
+    if (!name || !username) {
+      act('Enter an employee name and username.')
       return
     }
 
-    const updatedEmployees = editingEmployeeId === null
-      ? [...employees, { ...employeeForm, id: Date.now() }]
-      : employees.map(employee =>
-          employee.id === editingEmployeeId
-            ? { ...employeeForm, id: editingEmployeeId }
-            : employee
-        )
+    const existing = staff.find(person => person.username === username)
 
-    setEmployees(updatedEmployees)
-    localStorage.setItem('solsticeEmployees', JSON.stringify(updatedEmployees))
+    if (existing) {
+      act('That username already exists. Please use a unique username.')
+      return
+    }
 
-    setEmployeeForm({
-      id: 0,
-      name: '',
-      role: 'Admin',
-      startTime: '07:00',
-      endTime: '11:00',
-      active: true,
-    })
-    setEditingEmployeeId(null)
+    const formatTime = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number)
+      const suffix = hours >= 12 ? 'PM' : 'AM'
+      const displayHour = hours % 12 || 12
+      return `${displayHour}:${String(minutes).padStart(2, '0')} ${suffix}`
+    }
+
+    const newStaff: StaffRecord = {
+      username,
+      name,
+      role: employeeRole,
+      startTime,
+      endTime,
+      active,
+      schedule: `${formatTime(startTime)} – ${formatTime(endTime)}`,
+      attendance: [],
+    }
+
+    setStaff(old => [...old, newStaff])
+    form.reset()
+    act('Employee added successfully.')
+  }
+
+  const updateStaff = (
+    username: string,
+    field: 'name' | 'role' | 'startTime' | 'endTime' | 'active',
+    value: string | boolean
+  ) => {
+    setStaff(old =>
+      old.map(person => {
+        if (person.username !== username) return person
+
+        const updated = { ...person, [field]: value }
+
+        if (field === 'startTime' || field === 'endTime') {
+          const start = field === 'startTime' ? String(value) : (updated.startTime || '09:00')
+          const end = field === 'endTime' ? String(value) : (updated.endTime || '17:00')
+
+          const formatTime = (time: string) => {
+            const [hours, minutes] = time.split(':').map(Number)
+            const suffix = hours >= 12 ? 'PM' : 'AM'
+            return `${hours % 12 || 12}:${String(minutes).padStart(2, '0')} ${suffix}`
+          }
+
+          updated.schedule = `${formatTime(start)} – ${formatTime(end)}`
+          updated.startTime = start
+          updated.endTime = end
+        }
+
+        return updated
+      })
+    )
   }
 
   return (
     <div className="content">
       <PageTitle
-        eyebrow="TEAM MANAGEMENT"
+        eyebrow="PEOPLE & OPERATIONS"
         title="Employees Management"
-        subtitle="Manage employee names, roles, schedules, and status."
+        subtitle="Manage employee details, work schedules, status, and attendance."
       />
 
-      <Panel title={editingEmployeeId === null ? 'Add Employee' : 'Edit Employee'} icon="settings">
-        <div style={{ padding: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
-          <label>
-            Employee Name
+      <Panel title="Add employee" icon="orders">
+        <form
+          onSubmit={saveStaff}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+            gap: 12,
+            padding: 18,
+            alignItems: 'end',
+          }}
+        >
+          <Field label="Employee name">
             <input
-              value={employeeForm.name}
-              onChange={e => setEmployeeForm({ ...employeeForm, name: e.target.value })}
-              placeholder="Enter employee name"
-              style={{ display: 'block', width: '100%', marginTop: 6, padding: 10 }}
+              name="employeeName"
+              style={inputStyle}
+              placeholder="Enter full name"
+              required
             />
-          </label>
+          </Field>
 
-          <label>
-            Role
-            <select
-              value={employeeForm.role}
-              onChange={e => setEmployeeForm({ ...employeeForm, role: e.target.value as 'Manager' | 'Admin' })}
-              style={{ display: 'block', width: '100%', marginTop: 6, padding: 10 }}
-            >
+          <Field label="Username">
+            <input
+              name="username"
+              style={inputStyle}
+              placeholder="Unique username"
+              required
+            />
+          </Field>
+
+          <Field label="Role">
+            <select name="employeeRole" style={inputStyle} defaultValue="Cashier">
+              <option value="Cashier">Cashier</option>
               <option value="Manager">Manager</option>
               <option value="Admin">Admin</option>
             </select>
-          </label>
+          </Field>
 
-          <label>
-            Start Time
+          <Field label="Start time">
             <input
+              name="startTime"
               type="time"
-              value={employeeForm.startTime}
-              onChange={e => setEmployeeForm({ ...employeeForm, startTime: e.target.value })}
-              style={{ display: 'block', width: '100%', marginTop: 6, padding: 10 }}
+              style={inputStyle}
+              defaultValue="09:00"
+              required
             />
-          </label>
+          </Field>
 
-          <label>
-            End Time
+          <Field label="End time">
             <input
+              name="endTime"
               type="time"
-              value={employeeForm.endTime}
-              onChange={e => setEmployeeForm({ ...employeeForm, endTime: e.target.value })}
-              style={{ display: 'block', width: '100%', marginTop: 6, padding: 10 }}
+              style={inputStyle}
+              defaultValue="17:00"
+              required
             />
+          </Field>
+
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', padding: 10 }}>
+            <input name="active" type="checkbox" defaultChecked />
+            Active employee
           </label>
 
-          <label>
-            Status
-            <select
-              value={employeeForm.active ? 'Active' : 'Inactive'}
-              onChange={e => setEmployeeForm({ ...employeeForm, active: e.target.value === 'Active' })}
-              style={{ display: 'block', width: '100%', marginTop: 6, padding: 10 }}
-            >
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-          </label>
-
-          <div style={{ display: 'flex', alignItems: 'end', gap: 8 }}>
-            <button style={actionStyle} onClick={saveEmployee}>
-              {editingEmployeeId === null ? '+ Add Employee' : 'Save Changes'}
-            </button>
-
-            {editingEmployeeId !== null && (
-              <button
-                style={actionStyle}
-                onClick={() => {
-                  setEditingEmployeeId(null)
-                  setEmployeeForm({
-                    id: 0,
-                    name: '',
-                    role: 'Admin',
-                    startTime: '07:00',
-                    endTime: '11:00',
-                    active: true,
-                  })
-                }}
-              >
-                Cancel
-              </button>
-            )}
-          </div>
-        </div>
+          <button style={actionStyle} type="submit">
+            Add employee
+          </button>
+        </form>
       </Panel>
 
-      <Panel title={`Employee List (${employees.length})`} icon="history">
+      <Panel title={`Employee records (${staff.length})`} icon="history">
         <div style={{ overflowX: 'auto' }}>
           <table style={tableStyle}>
             <thead>
               <tr>
-                {['Name', 'Role', 'Schedule', 'Status', 'Action'].map(header => (
+                {[
+                  'Employee',
+                  'Username',
+                  'Role',
+                  'Start time',
+                  'End time',
+                  'Status',
+                  'Attendance',
+                  "Today's status",
+                ].map(header => (
                   <th key={header} style={cellStyle}>{header}</th>
                 ))}
               </tr>
             </thead>
+
             <tbody>
-              {employees.map(employee => (
-                <tr key={employee.id}>
-                  <td style={cellStyle}>{employee.name}</td>
-                  <td style={cellStyle}>{employee.role}</td>
+              {staff.map(person => (
+                <tr key={person.username}>
                   <td style={cellStyle}>
-                    {new Date(`2000-01-01T${employee.startTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                    {' – '}
-                    {new Date(`2000-01-01T${employee.endTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    <input
+                      style={inputStyle}
+                      value={person.name}
+                      onChange={e => updateStaff(person.username, 'name', e.target.value)}
+                    />
                   </td>
-                  <td style={cellStyle}>{employee.active ? 'Active' : 'Inactive'}</td>
+
+                  <td style={cellStyle}>{person.username}</td>
+
                   <td style={cellStyle}>
-                    <button
-                      style={actionStyle}
-                      onClick={() => {
-                        setEmployeeForm({ ...employee })
-                        setEditingEmployeeId(employee.id)
-                      }}
+                    <select
+                      style={inputStyle}
+                      value={person.role}
+                      onChange={e =>
+                        updateStaff(person.username, 'role', e.target.value)
+                      }
                     >
-                      Edit
-                    </button>
+                      <option value="Cashier">Cashier</option>
+                      <option value="Manager">Manager</option>
+                      <option value="Admin">Admin</option>
+                    </select>
+                  </td>
+
+                  <td style={cellStyle}>
+                    <input
+                      type="time"
+                      style={inputStyle}
+                      value={person.startTime || '09:00'}
+                      onChange={e =>
+                        updateStaff(person.username, 'startTime', e.target.value)
+                      }
+                    />
+                  </td>
+
+                  <td style={cellStyle}>
+                    <input
+                      type="time"
+                      style={inputStyle}
+                      value={person.endTime || '17:00'}
+                      onChange={e =>
+                        updateStaff(person.username, 'endTime', e.target.value)
+                      }
+                    />
+                  </td>
+
+                  <td style={cellStyle}>
+                    <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={person.active !== false}
+                        onChange={e =>
+                          updateStaff(person.username, 'active', e.target.checked)
+                        }
+                      />
+                      {person.active === false ? 'Inactive' : 'Active'}
+                    </label>
+                  </td>
+
+                  <td style={cellStyle}>{person.attendance.length}</td>
+
+                  <td style={cellStyle}>
+                    {person.attendance.find(a => a.date === todayAttendanceDate)?.status ||
+                      <button
+                        style={actionStyle}
+                        onClick={() => markAbsent(person.username)}
+                      >
+                        Mark absent
+                      </button>}
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
 
-              {employees.length === 0 && (
-                <tr>
-                  <td style={cellStyle} colSpan={5}>
-                    No employees added yet. Add your first employee using the form above.
-                  </td>
-                </tr>
+      <Panel title="Attendance overview" icon="calendar">
+        <div style={{ overflowX: 'auto' }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                {['Employee', 'Date', 'Status', 'Time in', 'Time out'].map(header => (
+                  <th key={header} style={cellStyle}>{header}</th>
+                ))}
+              </tr>
+            </thead>
+
+            <tbody>
+              {staff.flatMap(person =>
+                person.attendance.map((attendance, index) => (
+                  <tr key={`${person.username}-${index}`}>
+                    <td style={cellStyle}>{person.name}</td>
+                    <td style={cellStyle}>{attendance.date}</td>
+                    <td style={cellStyle}>{attendance.status}</td>
+                    <td style={cellStyle}>{attendance.timeIn || '—'}</td>
+                    <td style={cellStyle}>{attendance.timeOut || '—'}</td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
