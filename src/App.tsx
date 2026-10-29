@@ -34,11 +34,14 @@ const nav: [string, IconName][] = [
   ['Dashboard', 'grid'], ['Point of Sale', 'cart'], ['Products & Menu', 'cup'],
   ['Sales History', 'history'], ['Smart Inventory', 'box'], ['Expiration Alerts', 'calendar'],
   ['Waste Monitoring', 'trash'], ['Weather Insights', 'cloud'], ['Reports', 'chart'],
+  ['Employee Management', 'orders'], ['My Schedule', 'calendar'], ['Attendance', 'history'],
 ]
 
 type Product = { id: number; name: string; price: number; category: string; unitCost?: number }
 type Ingredient = { id: number; name: string; quantity: number; unit: string; min: number; expiry: string }
 type Sale = { id: number; date: string; items: string; total: number; cost?: number; profit?: number; paymentMethod?: string; cashier?: string }
+type UserRole = 'Admin' | 'Manager' | 'Cashier'
+type StaffRecord = { username: string; name: string; role: UserRole; schedule: string; attendance: { date: string; status: string; timeIn?: string; timeOut?: string }[] }
 type Waste = { id: number; item: string; quantity: number; reason: string; cost: number; date: string }
 
 const initialProducts: Product[] = [
@@ -91,6 +94,12 @@ export default function App() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
+  const [role, setRole] = useState<UserRole>('Admin')
+  const [staff, setStaff] = useState<StaffRecord[]>(() => readSaved('solstice_staff', [
+    { username: 'admin', name: 'Administrator', role: 'Admin', schedule: 'Mon–Fri · 9:00 AM–5:00 PM', attendance: [] },
+    { username: 'manager', name: 'Café Manager', role: 'Manager', schedule: 'Mon–Sat · 8:00 AM–4:00 PM', attendance: [] },
+    { username: 'cashier', name: 'Cashier One', role: 'Cashier', schedule: 'Mon–Fri · 10:00 AM–6:00 PM', attendance: [] },
+  ]))
 
   const [active, setActive] = useState('Dashboard')
   const [notice, setNotice] = useState('')
@@ -122,6 +131,10 @@ export default function App() {
   const [showWeatherAnimation, setShowWeatherAnimation] = useState(false)
   const [weatherAnimationKey, setWeatherAnimationKey] = useState(0)
   const [search, setSearch] = useState('')
+  const [staffName, setStaffName] = useState('')
+  const [staffUsername, setStaffUsername] = useState('')
+  const [staffRole, setStaffRole] = useState<UserRole>('Cashier')
+  const [staffSchedule, setStaffSchedule] = useState('Mon–Fri · 10:00 AM–6:00 PM')
 
   useEffect(() => {
   localStorage.setItem('solstice_products', JSON.stringify(products))
@@ -138,6 +151,8 @@ useEffect(() => {
 useEffect(() => {
   localStorage.setItem('solstice_waste', JSON.stringify(waste))
 }, [waste])
+
+useEffect(() => { localStorage.setItem('solstice_staff', JSON.stringify(staff)) }, [staff])
 
 useEffect(() => {
   if (
@@ -222,11 +237,13 @@ if ([95, 96, 99].includes(code)) {
 }, [])
 
   const act = (message: string) => { setNotice(message); window.setTimeout(() => setNotice(''), 2600) }
+  useEffect(() => { if (role !== 'Cashier' && active === 'Point of Sale') setActive('Dashboard') }, [role, active])
   const money = (n: number) => `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   const totalSales = sales.reduce((sum, sale) => sum + sale.total, 0)
   const totalRecordedCost = sales.reduce((sum, sale) => sum + (sale.cost ?? 0), 0)
   const totalRecordedProfit = sales.reduce((sum, sale) => sum + (sale.profit ?? 0), 0)
-  const totalOrders = sales.length
+  const visibleSales = role === 'Cashier' ? sales.filter(s => s.cashier === (staff.find(x => x.username === username)?.name || username)) : sales
+  const totalOrders = visibleSales.length
   const lowStock = ingredients.filter(i => i.quantity <= i.min).length
   const soonExpiry = ingredients.filter(i => {
     if (!i.expiry) return false
@@ -245,7 +262,7 @@ if ([95, 96, 99].includes(code)) {
     if (!cart.length) { act('Add a product to the cart first.'); return }
     const total = cart.reduce((sum, item) => sum + item.product.price * item.qty, 0)
     const cost = cart.reduce((sum, item) => sum + (item.product.unitCost ?? 0) * item.qty, 0)
-    const sale: Sale = { id: Date.now(), date: new Date().toLocaleString(), items: cart.map(item => `${item.product.name} × ${item.qty}`).join(', '), total, cost, profit: total - cost, paymentMethod, cashier: 'Admin' }
+    const sale: Sale = { id: Date.now(), date: new Date().toLocaleString(), items: cart.map(item => `${item.product.name} × ${item.qty}`).join(', '), total, cost, profit: total - cost, paymentMethod, cashier: staff.find(s => s.username === username)?.name || username }
     setSales(old => [sale, ...old])
     setCart([])
     setPaymentMethod('Cash')
@@ -328,12 +345,12 @@ const recommendedProducts = [...products]
           <Icon name="chart" size={16} /> View reports
         </button>
 
-        <button
+        {role === 'Cashier' && <button
           className="btn primary"
           onClick={() => setActive('Point of Sale')}
         >
           <Icon name="cart" size={16} /> Open Point of Sale
-        </button>
+        </button>}
       </div>
     </div>
 
@@ -668,7 +685,7 @@ const recommendedProducts = [...products]
     </div>
 
     <footer>
-      Solstice Coffee Management · Local demo data
+      Solstice Coffee Management · Local browser demo
     </footer>
 
   </div>
@@ -676,6 +693,27 @@ const recommendedProducts = [...products]
 
  const renderPage = () => {
   if (active === 'Dashboard') {
+    if (role !== 'Cashier') return renderDashboard();
+    const mine = sales.filter(s => s.cashier === (staff.find(x => x.username === username)?.name || username));
+    const todayKey = new Date().toDateString();
+    const todays = mine.filter(s => new Date(s.date).toDateString() === todayKey);
+    const metricCards = [
+      {label:'My sales today', value: money(todays.reduce((n,s)=>n+s.total,0))},
+      {label:'Transactions today', value: String(todays.length)},
+      {label:'My weekly sales', value: money(mine.filter(s => { const d = new Date(s.date); const now = new Date(); const start = new Date(now); start.setDate(now.getDate()-((now.getDay()+6)%7)); start.setHours(0,0,0,0); return d >= start; }).reduce((n,s)=>n+s.total,0))},
+      {label:'Low-stock alerts', value: String(lowStock)},
+    ];
+    return <div className="content"><PageTitle eyebrow="CASHIER WORKSPACE" title={`Hello, ${staff.find(x => x.username === username)?.name || username}`} subtitle="Your shift at a glance. Use Point of Sale to record customer transactions." />
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:14,marginBottom:18}}>{metricCards.map(m=><div key={m.label} style={{background:'#fffdf9',border:'1px solid #e7d8c5',borderRadius:12,padding:18}}><div style={{fontSize:12,color:'#8b6c52',marginBottom:8}}>{m.label}</div><strong style={{fontSize:22,color:'#3b2925'}}>{m.value}</strong></div>)}</div>
+      <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:18}}><button style={actionStyle} onClick={()=>setActive('Point of Sale')}>Open Point of Sale</button><button style={actionStyle} onClick={()=>setActive('My Schedule')}>View My Schedule</button><button style={actionStyle} onClick={()=>setActive('Attendance')}>Record Attendance</button></div>
+      <Panel title="Recent personal transactions" icon="history"><div style={{overflowX:'auto'}}><table style={tableStyle}><thead><tr>{['Date','Items','Payment','Total'].map(h=><th key={h} style={cellStyle}>{h}</th>)}</tr></thead><tbody>{mine.slice(0,5).map(s=><tr key={s.id}><td style={cellStyle}>{s.date}</td><td style={cellStyle}>{s.items}</td><td style={cellStyle}>{s.paymentMethod || '—'}</td><td style={cellStyle}>{money(s.total)}</td></tr>)}{mine.length===0 && <tr><td style={cellStyle} colSpan={4}>No transactions recorded under this cashier yet.</td></tr>}</tbody></table></div></Panel>
+    </div>;
+  }
+
+  if (role !== 'Cashier' && active === 'Point of Sale') return renderDashboard();
+
+  if (role === 'Cashier' && !['Point of Sale', 'Smart Inventory', 'Sales History', 'Reports', 'My Schedule', 'Attendance', 'Dashboard'].includes(active)) {
+    setActive('Dashboard');
     return renderDashboard();
   }
 
@@ -1012,21 +1050,113 @@ const recommendedProducts = [...products]
     );
   }
 
+  if (active === 'My Schedule') {
+    const me = staff.find(s => s.username === username)
+    return <div className="content"><PageTitle eyebrow="TEAM" title="My Schedule" subtitle="Check your assigned shift and days off." />
+      <Panel title="Assigned shift" icon="calendar"><div style={{padding:18}}><h3 style={{marginTop:0,color:'#3b2925'}}>{me?.name || username}</h3><p>{me?.schedule || 'No schedule assigned yet. Please contact your manager.'}</p></div></Panel>
+    </div>
+  }
+
+  if (active === 'Attendance') {
+    const meIndex = staff.findIndex(s => s.username === username)
+    const me = staff[meIndex]
+    const today = new Date().toLocaleDateString()
+    const record = me?.attendance.find(a => a.date === today)
+    const updateAttendance = (kind: 'in' | 'out') => {
+      if (meIndex < 0) return
+      const existingRecord = me?.attendance.find(a => a.date === today)
+      if (kind === 'in' && existingRecord?.timeIn) { act('Time in has already been recorded for today.'); return }
+      if (kind === 'out' && !existingRecord?.timeIn) { act('Please record Time In first.'); return }
+      if (kind === 'out' && existingRecord?.timeOut) { act('Time out has already been recorded for today.'); return }
+      const nowDate = new Date()
+      const now = nowDate.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+      let status = existingRecord?.status || 'Present'
+      if (kind === 'in' && me?.schedule) {
+        const match = me.schedule.match(/(\d{1,2}:\d{2})\s*(AM|PM)/i)
+        if (match) {
+          let hour = Number(match[1].split(':')[0]) % 12
+          const minute = Number(match[1].split(':')[1])
+          if (match[2].toUpperCase() === 'PM') hour += 12
+          const scheduledMinutes = hour * 60 + minute
+          const actualMinutes = nowDate.getHours() * 60 + nowDate.getMinutes()
+          if (actualMinutes > scheduledMinutes + 5) status = 'Late'
+        }
+      }
+      setStaff(old => old.map((person, i) => {
+        if (i !== meIndex) return person
+        const existing = person.attendance.find(a => a.date === today)
+        const attendance = existing
+          ? person.attendance.map(a => a.date === today ? {...a, status, ...(kind === 'in' ? {timeIn: now} : {timeOut: now})} : a)
+          : [...person.attendance, {date: today, status, ...(kind === 'in' ? {timeIn:now} : {timeOut:now})}]
+        return {...person, attendance}
+      }))
+      act(kind === 'in' ? `Time in recorded (${status}).` : 'Time out recorded.')
+    }
+    return <div className="content"><PageTitle eyebrow="TEAM" title="Attendance" subtitle="Record your time in and time out for today's shift." />
+      <Panel title={`Today's attendance · ${today}`} icon="history"><div style={{padding:18}}><p><strong>Status:</strong> {record?.status || 'Not recorded'}</p><p><strong>Time in:</strong> {record?.timeIn || '—'} &nbsp; <strong>Time out:</strong> {record?.timeOut || '—'}</p><div style={{display:'flex',gap:10,flexWrap:'wrap'}}><button style={actionStyle} disabled={!!record?.timeIn} onClick={() => updateAttendance('in')}>Time In</button><button style={actionStyle} disabled={!record?.timeIn || !!record?.timeOut} onClick={() => updateAttendance('out')}>Time Out</button></div></div></Panel>
+      <Panel title="My attendance history" icon="calendar"><div style={{overflowX:'auto'}}><table style={tableStyle}><thead><tr>{['Date','Status','Time in','Time out'].map(h=><th key={h} style={cellStyle}>{h}</th>)}</tr></thead><tbody>{(me?.attendance || []).slice().reverse().map((a,i)=><tr key={i}><td style={cellStyle}>{a.date}</td><td style={cellStyle}>{a.status}</td><td style={cellStyle}>{a.timeIn || '—'}</td><td style={cellStyle}>{a.timeOut || '—'}</td></tr>)}</tbody></table></div></Panel>
+    </div>
+  }
+
+  if (active === 'Employee Management' && role !== 'Cashier') {
+    const todayAttendanceDate = new Date().toLocaleDateString()
+    const markAbsent = (targetUsername: string) => {
+      setStaff(old => old.map(person => {
+        if (person.username !== targetUsername || person.attendance.some(a => a.date === todayAttendanceDate)) return person
+        return { ...person, attendance: [...person.attendance, { date: todayAttendanceDate, status: 'Absent' }] }
+      }))
+      act('Absent recorded if the employee has no attendance record today.')
+    }
+    const addStaff = (e: React.FormEvent) => {
+      e.preventDefault()
+      if (!staffName.trim() || !staffUsername.trim() || staff.some(x => x.username === staffUsername.trim().toLowerCase())) { act('Enter a name and unique username.'); return }
+      setStaff(old => [...old, {name:staffName.trim(), username:staffUsername.trim().toLowerCase(), role:staffRole, schedule:staffSchedule, attendance:[]}])
+      setStaffName(''); setStaffUsername(''); act('Employee added. Demo login passwords are documented on the login screen only for the seeded accounts; connect a backend for real employee authentication.')
+    }
+    return <div className="content"><PageTitle eyebrow="PEOPLE & OPERATIONS" title="Employee Management" subtitle="Manage staff schedules and review attendance records." />
+      <Panel title="Add employee / assign schedule" icon="orders"><form onSubmit={addStaff} style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,padding:18,alignItems:'end'}}>
+        <Field label="Employee name"><input style={inputStyle} value={staffName} onChange={e=>setStaffName(e.target.value)} required /></Field>
+        <Field label="Username"><input style={inputStyle} value={staffUsername} onChange={e=>setStaffUsername(e.target.value)} required /></Field>
+        <Field label="Role"><select style={inputStyle} value={staffRole} onChange={e=>setStaffRole(e.target.value as UserRole)}><option>Cashier</option><option>Manager</option><option>Admin</option></select></Field>
+        <Field label="Work schedule"><input style={inputStyle} value={staffSchedule} onChange={e=>setStaffSchedule(e.target.value)} required /></Field>
+        <button style={actionStyle} type="submit">Add employee</button>
+      </form></Panel>
+      <Panel title={`Staff records (${staff.length})`} icon="history"><div style={{overflowX:'auto'}}><table style={tableStyle}><thead><tr>{['Employee','Username','Role','Schedule','Attendance records',"Today's status"].map(h=><th key={h} style={cellStyle}>{h}</th>)}</tr></thead><tbody>{staff.map(person=><tr key={person.username}><td style={cellStyle}>{person.name}</td><td style={cellStyle}>{person.username}</td><td style={cellStyle}>{person.role}</td><td style={cellStyle}>{person.schedule}</td><td style={cellStyle}>{person.attendance.length}</td><td style={cellStyle}>{person.attendance.find(a=>a.date===todayAttendanceDate)?.status || <button style={actionStyle} onClick={()=>markAbsent(person.username)}>Mark absent</button>}</td></tr>)}</tbody></table></div></Panel>
+      <Panel title="Attendance overview" icon="calendar"><div style={{overflowX:'auto'}}><table style={tableStyle}><thead><tr>{['Employee','Date','Status','Time in','Time out'].map(h=><th key={h} style={cellStyle}>{h}</th>)}</tr></thead><tbody>{staff.flatMap(person=>person.attendance.map((a,i)=><tr key={`${person.username}-${i}`}><td style={cellStyle}>{person.name}</td><td style={cellStyle}>{a.date}</td><td style={cellStyle}>{a.status}</td><td style={cellStyle}>{a.timeIn || '—'}</td><td style={cellStyle}>{a.timeOut || '—'}</td></tr>))}</tbody></table></div></Panel>
+    </div>
+  }
+
+  if (active === 'Reports') {
+    const now = new Date()
+    const getDate = (value: string) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? null : d }
+    const sameWeek = (d: Date) => { const start = new Date(now); start.setHours(0,0,0,0); start.setDate(start.getDate() - ((start.getDay()+6)%7)); const end = new Date(start); end.setDate(start.getDate()+7); return d >= start && d < end }
+    const periodSales = sales.filter(s => { const d = getDate(s.date); return d && (role === 'Cashier' ? s.cashier === (staff.find(x=>x.username===username)?.name || username) : true) })
+    const daily = periodSales.filter(s => { const d=getDate(s.date); return d?.toDateString() === now.toDateString() })
+    const weekly = periodSales.filter(s => { const d=getDate(s.date); return !!d && sameWeek(d) })
+    const monthly = periodSales.filter(s => { const d=getDate(s.date); return !!d && d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear() })
+    const sum = (list: Sale[], field: 'total'|'cost'|'profit') => list.reduce((n,s)=>n+(s[field] || 0),0)
+    const cards = [{label:'Today',list:daily},{label:'This week',list:weekly},{label:'This month',list:monthly}]
+    return <div className="content"><PageTitle eyebrow="BUSINESS PERFORMANCE" title={role === 'Cashier' ? 'My Sales Reports' : 'Sales Reports'} subtitle="Sales are grouped by local transaction date. Figures use recorded checkouts." />
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:14,marginBottom:18}}>{cards.map(c=><Panel key={c.label} title={c.label} icon="chart"><div style={{padding:16}}><p>Transactions: <strong>{c.list.length}</strong></p><p>Sales: <strong>{money(sum(c.list,'total'))}</strong></p><p>Ingredient cost: <strong>{money(sum(c.list,'cost'))}</strong></p><p>Gross profit: <strong>{money(sum(c.list,'profit'))}</strong></p></div></Panel>)}</div>
+      {role !== 'Cashier' && <Panel title="Sales by cashier" icon="orders"><div style={{overflowX:'auto'}}><table style={tableStyle}><thead><tr>{['Cashier','Transactions','Sales','Ingredient cost','Gross profit'].map(h=><th key={h} style={cellStyle}>{h}</th>)}</tr></thead><tbody>{Array.from(new Set(sales.map(s=>s.cashier || 'Unassigned'))).map(name=>{const list=sales.filter(s=>(s.cashier||'Unassigned')===name);return <tr key={name}><td style={cellStyle}>{name}</td><td style={cellStyle}>{list.length}</td><td style={cellStyle}>{money(sum(list,'total'))}</td><td style={cellStyle}>{money(sum(list,'cost'))}</td><td style={cellStyle}>{money(sum(list,'profit'))}</td></tr>})}</tbody></table></div></Panel>}
+    </div>
+  }
+
   if (active === 'Sales History') {
     return (
       <div className="content">
         <PageTitle
           eyebrow="TRANSACTION RECORDS"
           title="Sales History"
-          subtitle="Completed checkouts recorded in this browser."
+          subtitle={role === 'Cashier' ? 'Your completed transactions.' : 'Completed transactions across the café, including cashier attribution.'}
         />
 
         <Panel
-          title={`Transactions (${sales.length})`}
+          title={`Transactions (${visibleSales.length})`}
           icon="history"
-          action={<strong>{money(totalSales)}</strong>}
+          action={<strong>{money(visibleSales.reduce((sum, sale) => sum + sale.total, 0))}</strong>}
         >
-          {sales.length === 0 ? (
+          {visibleSales.length === 0 ? (
             <p>
               No sales yet. Go to Point of Sale and complete a checkout
               to create your first record.
@@ -1045,7 +1175,7 @@ const recommendedProducts = [...products]
                 </thead>
 
                 <tbody>
-                  {sales.map(s => (
+                  {visibleSales.map(s => (
                     <tr key={s.id}>
                       <td style={cellStyle}>
                         #{String(s.id).slice(-6)}
@@ -1076,7 +1206,7 @@ const recommendedProducts = [...products]
           subtitle="Record ingredients, stock levels, reorder thresholds, and expiration dates."
         />
 
-        <Panel title="Add ingredient" icon="box">
+        {role !== 'Cashier' && <Panel title="Add ingredient" icon="box">
           <form
             onSubmit={addIngredient}
             style={{
@@ -1143,7 +1273,7 @@ const recommendedProducts = [...products]
               Add ingredient
             </button>
           </form>
-        </Panel>
+        </Panel>}
 
         <Panel
           title={`Ingredients (${ingredients.length})`}
@@ -1206,7 +1336,7 @@ const recommendedProducts = [...products]
                     </td>
 
                     <td style={cellStyle}>
-                      <button
+                      {role !== 'Cashier' ? <><button
                         style={actionStyle}
                         onClick={() => {
                           const raw = window.prompt(
@@ -1245,7 +1375,7 @@ const recommendedProducts = [...products]
                         }
                       >
                         Remove
-                      </button>
+                      </button></> : <span style={{color:'#8b6c52'}}>View only</span>}
                     </td>
                   </tr>
                 ))}
@@ -1708,11 +1838,25 @@ const recommendedProducts = [...products]
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (username.trim() === 'admin' && password === 'Solstice@2026') {
+    const user = username.trim().toLowerCase()
+    const account = staff.find(person => person.username.toLowerCase() === user)
+    // Demo-only role passwords: seeded accounts keep their documented passwords;
+    // newly added staff use <Role>@2026 until a real authentication backend is connected.
+    const expectedPassword = user === 'admin'
+      ? 'Solstice@2026'
+      : user === 'manager'
+        ? 'Manager@2026'
+        : user === 'cashier'
+          ? 'Cashier@2026'
+          : account ? `${account.role}@2026` : ''
+    if (account && password === expectedPassword) {
+      setRole(account.role)
+      setUsername(user)
       setIsLoggedIn(true)
+      setActive('Dashboard')
       setLoginError('')
     } else {
-      setLoginError('Invalid username or password.')
+      setLoginError('Invalid username or password. New demo staff use <Role>@2026 (for example, Cashier@2026).')
     }
   }
 
@@ -1845,7 +1989,7 @@ return (
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark"><Icon name="cup" size={20}/></div><div><strong>SOLSTICE</strong><span>COFFEE</span></div></div>
       <p className="brand-note">Every season,<br/>your perfect brew.</p>
-      <nav>{nav.map(([label, icon]) => <button key={label} className={active === label ? 'active' : ''} onClick={() => { setActive(label); setSearch('') }}><Icon name={icon}/><span>{label}</span>{label === 'Expiration Alerts' && soonExpiry.length > 0 && <b>{soonExpiry.length}</b>}</button>)}</nav>
+      <nav>{nav.filter(([label]) => role !== 'Cashier' ? !['Point of Sale', 'My Schedule', 'Attendance'].includes(label) : ['Dashboard', 'Point of Sale', 'Smart Inventory', 'Sales History', 'Reports', 'My Schedule', 'Attendance'].includes(label)).map(([label, icon]) => <button key={label} className={active === label ? 'active' : ''} onClick={() => { setActive(label); setSearch('') }}><Icon name={icon}/><span>{label}</span>{label === 'Expiration Alerts' && soonExpiry.length > 0 && <b>{soonExpiry.length}</b>}</button>)}</nav>
       <div className="sidebar-bottom">
   <button
     className={active === 'Settings' ? 'active' : ''}
@@ -1869,10 +2013,10 @@ return (
   </button>
 
   <div className="profile">
-    <div className="avatar">AD</div>
+    <div className="avatar">{(staff.find(s => s.username === username)?.name || username).slice(0, 2).toUpperCase()}</div>
     <div>
-      <strong>Administrator</strong>
-      <span>General Manager</span>
+      <strong>{staff.find(s => s.username === username)?.name || username}</strong>
+      <span>{role}</span>
     </div>
   </div>
 </div>
