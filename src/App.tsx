@@ -36,9 +36,9 @@ const nav: [string, IconName][] = [
   ['Waste Monitoring', 'trash'], ['Weather Insights', 'cloud'], ['Reports', 'chart'],
 ]
 
-type Product = { id: number; name: string; price: number; category: string }
+type Product = { id: number; name: string; price: number; category: string; unitCost?: number }
 type Ingredient = { id: number; name: string; quantity: number; unit: string; min: number; expiry: string }
-type Sale = { id: number; date: string; items: string; total: number }
+type Sale = { id: number; date: string; items: string; total: number; cost?: number; profit?: number; paymentMethod?: string; cashier?: string }
 type Waste = { id: number; item: string; quantity: number; reason: string; cost: number; date: string }
 
 const initialProducts: Product[] = [
@@ -101,6 +101,8 @@ export default function App() {
   const [cart, setCart] = useState<{ product: Product; qty: number }[]>([])
   const [productName, setProductName] = useState('')
   const [productPrice, setProductPrice] = useState('150')
+  const [productCost, setProductCost] = useState('0')
+  const [paymentMethod, setPaymentMethod] = useState('Cash')
   const [productCategory, setProductCategory] = useState('Hot Coffee')
   const [ingredientName, setIngredientName] = useState('')
   const [ingredientQty, setIngredientQty] = useState('1')
@@ -222,6 +224,8 @@ if ([95, 96, 99].includes(code)) {
   const act = (message: string) => { setNotice(message); window.setTimeout(() => setNotice(''), 2600) }
   const money = (n: number) => `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   const totalSales = sales.reduce((sum, sale) => sum + sale.total, 0)
+  const totalRecordedCost = sales.reduce((sum, sale) => sum + (sale.cost ?? 0), 0)
+  const totalRecordedProfit = sales.reduce((sum, sale) => sum + (sale.profit ?? 0), 0)
   const totalOrders = sales.length
   const lowStock = ingredients.filter(i => i.quantity <= i.min).length
   const soonExpiry = ingredients.filter(i => {
@@ -240,16 +244,19 @@ if ([95, 96, 99].includes(code)) {
   const checkout = () => {
     if (!cart.length) { act('Add a product to the cart first.'); return }
     const total = cart.reduce((sum, item) => sum + item.product.price * item.qty, 0)
-    const sale: Sale = { id: Date.now(), date: new Date().toLocaleString(), items: cart.map(item => `${item.product.name} × ${item.qty}`).join(', '), total }
+    const cost = cart.reduce((sum, item) => sum + (item.product.unitCost ?? 0) * item.qty, 0)
+    const sale: Sale = { id: Date.now(), date: new Date().toLocaleString(), items: cart.map(item => `${item.product.name} × ${item.qty}`).join(', '), total, cost, profit: total - cost, paymentMethod, cashier: 'Admin' }
     setSales(old => [sale, ...old])
     setCart([])
-    act(`Checkout complete — ${money(total)}`)
+    setPaymentMethod('Cash')
+    act(`Transaction saved — ${money(total)} (${paymentMethod})`)
   }
   const addProduct = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!productName.trim() || Number(productPrice) <= 0) { act('Enter a product name and a valid price.'); return }
-    setProducts(old => [...old, { id: Date.now(), name: productName.trim(), price: Number(productPrice), category: productCategory }])
+    if (!productName.trim() || Number(productPrice) <= 0 || Number(productCost) < 0) { act('Enter a product name, valid selling price, and non-negative unit cost.'); return }
+    setProducts(old => [...old, { id: Date.now(), name: productName.trim(), price: Number(productPrice), category: productCategory, unitCost: Number(productCost) }])
     setProductName('')
+    setProductCost('0')
     act('Product added successfully.')
   }
   const addIngredient = (e: React.FormEvent) => {
@@ -678,8 +685,16 @@ const recommendedProducts = [...products]
         <PageTitle
           eyebrow="SALES COUNTER"
           title="Point of Sale"
-          subtitle="Select menu items, adjust quantities, and complete a checkout."
+          subtitle="Create a transaction, review selling price and ingredient cost, then record the payment."
         />
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginBottom: 18 }}>
+          {[{ label: 'Transactions recorded', value: String(sales.length) }, { label: 'Recorded sales', value: money(totalSales) }, { label: 'Recorded ingredient cost', value: money(totalRecordedCost) }, { label: 'Estimated gross profit', value: money(totalRecordedProfit) }].map(metric => (
+            <div key={metric.label} style={{ background: '#fffdf9', border: '1px solid #e7d8c5', borderRadius: 12, padding: 15 }}>
+              <div style={{ fontSize: 12, color: '#8b6c52', marginBottom: 7 }}>{metric.label}</div><strong style={{ fontSize: 19, color: '#3b2925' }}>{metric.value}</strong>
+            </div>
+          ))}
+        </div>
 
         <div
           style={{
@@ -689,7 +704,7 @@ const recommendedProducts = [...products]
             alignItems: 'start',
           }}
         >
-          <Panel title="Menu items" icon="cup">
+          <Panel title="Add items to transaction" icon="cup">
             <input
               style={inputStyle}
               placeholder="Search menu..."
@@ -746,7 +761,7 @@ const recommendedProducts = [...products]
           </Panel>
 
           <Panel
-            title="Current order"
+            title="Current transaction"
             icon="cart"
             action={
               <button
@@ -839,6 +854,18 @@ const recommendedProducts = [...products]
                   </div>
                 ))}
 
+                <div style={{ display: 'grid', gap: 8, marginTop: 16, padding: 14, borderRadius: 10, background: '#f7f1e8' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>Subtotal</span><strong>{money(cart.reduce((sum, x) => sum + x.product.price * x.qty, 0))}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>Estimated ingredient cost</span><strong>{money(cart.reduce((sum, x) => sum + (x.product.unitCost ?? 0) * x.qty, 0))}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>Estimated gross profit</span><strong>{money(cart.reduce((sum, x) => sum + (x.product.price - (x.product.unitCost ?? 0)) * x.qty, 0))}</strong></div>
+                  <Field label="Payment method">
+                    <select style={inputStyle} value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                      <option>Cash</option><option>GCash</option><option>Debit/Credit Card</option><option>Other</option>
+                    </select>
+                  </Field>
+                  <small style={{ color: '#8b6c52' }}>Costs and profit are estimates based on the unit cost entered in Products &amp; Menu.</small>
+                </div>
+
                 <h2>
                   Total:{' '}
                   {money(
@@ -853,7 +880,7 @@ const recommendedProducts = [...products]
                   style={{ ...actionStyle, width: '100%' }}
                   onClick={checkout}
                 >
-                  Complete checkout
+                  Record transaction
                 </button>
               </>
             )}
@@ -904,6 +931,18 @@ const recommendedProducts = [...products]
               />
             </Field>
 
+            <Field label="Unit ingredient cost (PHP)">
+              <input
+                style={inputStyle}
+                type="number"
+                min="0"
+                step="0.01"
+                value={productCost}
+                onChange={e => setProductCost(e.target.value)}
+                required
+              />
+            </Field>
+
             <Field label="Category">
               <select
                 style={inputStyle}
@@ -931,7 +970,7 @@ const recommendedProducts = [...products]
             <table style={tableStyle}>
               <thead>
                 <tr>
-                  {['Product', 'Category', 'Price', 'Action'].map(x => (
+                  {['Product', 'Category', 'Selling price', 'Unit cost', 'Action'].map(x => (
                     <th key={x} style={cellStyle}>
                       {x}
                     </th>
@@ -945,6 +984,7 @@ const recommendedProducts = [...products]
                     <td style={cellStyle}>{p.name}</td>
                     <td style={cellStyle}>{p.category}</td>
                     <td style={cellStyle}>{money(p.price)}</td>
+                    <td style={cellStyle}>{p.unitCost === undefined ? 'Not set' : money(p.unitCost)}</td>
 
                     <td style={cellStyle}>
                       <button
@@ -996,7 +1036,7 @@ const recommendedProducts = [...products]
               <table style={tableStyle}>
                 <thead>
                   <tr>
-                    {['Transaction', 'Date', 'Items', 'Total'].map(x => (
+                    {['Transaction', 'Date', 'Items', 'Payment', 'Sales total', 'Ingredient cost', 'Gross profit'].map(x => (
                       <th key={x} style={cellStyle}>
                         {x}
                       </th>
@@ -1012,7 +1052,10 @@ const recommendedProducts = [...products]
                       </td>
                       <td style={cellStyle}>{s.date}</td>
                       <td style={cellStyle}>{s.items}</td>
+                      <td style={cellStyle}>{s.paymentMethod ?? 'Legacy record'}</td>
                       <td style={cellStyle}>{money(s.total)}</td>
+                      <td style={cellStyle}>{s.cost === undefined ? 'Not recorded' : money(s.cost)}</td>
+                      <td style={cellStyle}>{s.profit === undefined ? 'Not recorded' : money(s.profit)}</td>
                     </tr>
                   ))}
                 </tbody>
