@@ -1578,7 +1578,7 @@ const recommendedProducts = [...products]
   </button>
 
   <button
-    style={actionStyle}
+    style={{ ...actionStyle, marginRight: 8 }}
     onClick={() => {
       const confirmed = window.confirm(
         `Delete ${person.name}? This will also remove their attendance from this staff list.`
