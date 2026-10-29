@@ -128,7 +128,7 @@ export default function App() {
     { username: 'manager', name: 'Café Manager', role: 'Manager', schedule: 'Mon–Sat · 8:00 AM–4:00 PM', attendance: [] },
     { username: 'cashier', name: 'Cashier One', role: 'Cashier', schedule: 'Mon–Fri · 10:00 AM–6:00 PM', attendance: [] },
   ]))
-
+  const [editingStaffUsername, setEditingStaffUsername] = useState<string | null>(null)
   const [active, setActive] = useState('Dashboard')
   const [notice, setNotice] = useState('')
   const [products, setProducts] = useState<Product[]>(() => readSaved('solstice_products', initialProducts))
