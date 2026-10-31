@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { supabase } from './src/supabase'
 
 type IconName =
   | 'grid' | 'cart' | 'cup' | 'history' | 'box' | 'calendar'
