@@ -2344,31 +2344,40 @@ const recommendedProducts = [...products]
   );
 };
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault()
+ const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setLoginError('')
 
-    const user = username.trim().toLowerCase()
-    const account = staff.find(person => person.username.toLowerCase() === user)
-    // Demo-only role passwords: seeded accounts keep their documented passwords;
-    // newly added staff use <Role>@2026 until a real authentication backend is connected.
-    const expectedPassword = user === 'admin'
-      ? 'Solstice@2026'
-      : user === 'manager'
-        ? 'Manager@2026'
-        : user === 'cashier'
-          ? 'Cashier@2026'
-          : account ? `${account.role}@2026` : ''
-    if (account && password === expectedPassword) {
-      setRole(account.role)
-      setUsername(user)
-      setIsLoggedIn(true)
-      setActive('Dashboard')
-      setLoginError('')
-    } else {
-      setLoginError('Invalid username or password. New demo staff use <Role>@2026 (for example, Cashier@2026).')
-    }
+  const user = username.trim().toLowerCase()
+
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    email: user,
+    password,
+  })
+
+  if (authError || !authData.user) {
+    setLoginError('Invalid email or password.')
+    return
   }
 
+  const { data: profile, error: profileError } = await supabase
+    .from('staff_profiles')
+    .select('full_name, username, role, active')
+    .eq('id', authData.user.id)
+    .single()
+
+  if (profileError || !profile || !profile.active) {
+    await supabase.auth.signOut()
+    setLoginError('Account not found or inactive. Contact the admin.')
+    return
+  }
+
+  setRole(profile.role)
+  setUsername(profile.username)
+  setIsLoggedIn(true)
+  setActive('Dashboard')
+  setLoginError('')
+}
   if (!isLoggedIn) {
     return (
       <div
