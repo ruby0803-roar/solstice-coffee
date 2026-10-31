@@ -2432,10 +2432,10 @@ const recommendedProducts = [...products]
             Username
 
             <input
-              type="text"
+              type="email"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
+             autoComplete="email"
               required
               style={inputStyle}
             />
