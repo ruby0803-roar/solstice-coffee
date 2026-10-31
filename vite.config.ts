@@ -28,8 +28,7 @@ react(),
       figmaLinkedPackageSourcemaps(),
     ],
     resolve: {
-      alias: {
-        '@': path.resolve(__dirname, './src'),
+      alias: {'@': path.resolve(import.meta.dirname, './src'),'@': path.resolve(__dirname, './src'),
       },
     },
     server: {
